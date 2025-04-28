@@ -14,7 +14,7 @@ public class LobbyPlayerControllerOnline : NetworkBehaviour
     private LobbyInputActions inputActions;
 
     [Networked] public string PlayerName { get; set; }
-    [Networked] public int SelectedCharacter { get; set; } = 1; // 1 = left panel default
+    [Networked] public int SelectedCharacter { get; set; } = 1;
     [Networked] public bool IsReady { get; set; }
 
     private void Awake()
@@ -34,22 +34,14 @@ public class LobbyPlayerControllerOnline : NetworkBehaviour
         if (HasInputAuthority)
         {
             inputActions.Enable();
-            inputActions.LobbyActions.MoveLeft.performed += ctx => { Debug.Log("[INPUT] MoveLeft pressed"); OnMoveLeft(); };
-            inputActions.LobbyActions.MoveRight.performed += ctx => { Debug.Log("[INPUT] MoveRight pressed"); OnMoveRight(); };
-            inputActions.LobbyActions.Ready.performed += ctx => { Debug.Log("[INPUT] Ready pressed"); OnReady(); };
+            inputActions.LobbyActions.MoveLeft.performed += ctx => OnMoveLeft();
+            inputActions.LobbyActions.MoveRight.performed += ctx => OnMoveRight();
+            inputActions.LobbyActions.Ready.performed += ctx => OnReady();
 
-            StartCoroutine(WaitAndSetName());
+            RPC_SetPlayerName($"Player {Runner.LocalPlayer.PlayerId}");
         }
 
         UpdateUI();
-    }
-
-    private System.Collections.IEnumerator WaitAndSetName()
-    {
-        yield return new WaitUntil(() => Runner != null && Runner.LocalPlayer == Object.InputAuthority);
-
-        Debug.Log($"[LobbyPlayerController] Sending PlayerName for {Runner.LocalPlayer}");
-        RPC_SetPlayerName($"Player {Runner.LocalPlayer.PlayerId}");
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
@@ -57,14 +49,12 @@ public class LobbyPlayerControllerOnline : NetworkBehaviour
     {
         Debug.Log($"[LobbyPlayerController] RPC_SetPlayerName called with {name}");
         PlayerName = name;
-        UpdateUI();
     }
 
     private void OnMoveLeft()
     {
         if (!IsReady)
         {
-            Debug.Log("[INPUT] Move Left Pressed");
             RPC_SetCharacter(1);
         }
     }
@@ -73,47 +63,68 @@ public class LobbyPlayerControllerOnline : NetworkBehaviour
     {
         if (!IsReady)
         {
-            Debug.Log("[INPUT] Move Right Pressed");
             RPC_SetCharacter(2);
         }
-    }
-
-    [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
-    private void RPC_SetCharacter(int character)
-    {
-        Debug.Log($"[RPC] Set Character: {character}");
-        SelectedCharacter = character;
-        UpdateUI();
     }
 
     private void OnReady()
     {
         Debug.Log("[LobbyPlayerController] Ready input detected");
-        IsReady = !IsReady;
+
+        bool newReadyState = !IsReady;
+        RPC_UpdateReadyUI(newReadyState);
     }
 
-    public void UpdateUI()
+    [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
+    private void RPC_UpdateReadyUI(bool ready)
+    {
+        Debug.Log($"[LobbyPlayerController] RPC_UpdateReadyUI called with ready={ready}");
+        IsReady = ready;
+        UpdateUI();
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
+    private void RPC_SetCharacter(int character)
+    {
+        Debug.Log($"[LobbyPlayerController] RPC_SetCharacter: {character}");
+        SelectedCharacter = character;
+        UpdateUI();
+    }
+
+    private void UpdateUI()
     {
         if (playerNameText != null)
         {
             playerNameText.text = PlayerName;
-            Debug.Log($"[LobbyPlayerController] UI updated - PlayerName = {PlayerName}");
+
+            // Color based on PlayerId
+            if (Object.InputAuthority.PlayerId == 1)
+                playerNameText.color = Color.red;
+            else if (Object.InputAuthority.PlayerId == 2)
+                playerNameText.color = Color.green;
+
+            // Bold/Underline if Ready
+            playerNameText.fontStyle = IsReady ? (FontStyles.Bold | FontStyles.Underline) : FontStyles.Normal;
         }
 
-        if (SelectedCharacter == 1 && leftCharacterPanel != null)
+        // Move to correct character panel
+        Transform targetPanel = (SelectedCharacter == 1) ? leftCharacterPanel : rightCharacterPanel;
+        if (targetPanel != null && transform.parent != targetPanel)
         {
-            if (transform.parent != leftCharacterPanel)
-            {
-                Debug.Log("[LobbyPlayerController] Moving to Left Panel");
-                transform.SetParent(leftCharacterPanel, false);
-            }
+            transform.SetParent(targetPanel, false);
         }
-        else if (SelectedCharacter == 2 && rightCharacterPanel != null)
+
+        // Set proper anchored position for Player 2
+        RectTransform rect = GetComponent<RectTransform>();
+        if (rect != null)
         {
-            if (transform.parent != rightCharacterPanel)
+            if (Object.InputAuthority.PlayerId == 2)
             {
-                Debug.Log("[LobbyPlayerController] Moving to Right Panel");
-                transform.SetParent(rightCharacterPanel, false);
+                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -200f); // Fixed Y offset
+            }
+            else
+            {
+                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, 0f); // Player 1 stays at default
             }
         }
     }
