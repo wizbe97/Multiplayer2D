@@ -1,141 +1,96 @@
 using UnityEngine;
 using Fusion;
-using Fusion.Sockets;
-using System.Collections.Generic;
 using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 
-public class LobbyManagerOnline : NetworkBehaviour, INetworkRunnerCallbacks
+public class LobbyManagerOnline : MonoBehaviour
 {
+    public static LobbyManagerOnline Instance { get; private set; }
+
     [SerializeField] private LobbyPlayerControllerOnline playerPrefab;
 
     public Transform leftCharacterPanel;
     public Transform rightCharacterPanel;
     public GameObject startGameButton;
 
-    private Dictionary<int, LobbyPlayerControllerOnline> characterLocks = new Dictionary<int, LobbyPlayerControllerOnline>();
+    private Dictionary<int, LobbyPlayerControllerOnline> characterLocks = new();
 
-
-    private NetworkRunner runner;
-
-    private async void Start()
+    private void Awake()
     {
-        runner = new GameObject("NetworkRunner (Lobby)").AddComponent<NetworkRunner>();
-        runner.ProvideInput = true;
-        runner.AddCallbacks(this);
-
-        DontDestroyOnLoad(runner.gameObject); // <<< ADD THIS LINE!
-
-        runner.transform.SetParent(transform); // Keep hierarchy clean
-
-
-        var result = await runner.StartGame(new StartGameArgs
+        if (Instance != null)
         {
-            GameMode = GameMode.Shared,
-            SessionName = "LobbySession",
-            SceneManager = runner.gameObject.AddComponent<NetworkSceneManagerDefault>()
-        });
-
-        if (!result.Ok)
-        {
-            Debug.LogError($"[LobbyManagerOnline] Failed to start: {result.ShutdownReason}");
+            Destroy(gameObject);
+            return;
         }
+        Instance = this;
     }
 
-    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    public void HandlePlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        Debug.Log($"[LobbyManagerOnline] OnPlayerJoined triggered for {player}");
+        Debug.Log($"[LobbyManagerOnline] Handling player joined: {player}");
 
-        // Only spawn for *local* player
         if (player == runner.LocalPlayer)
         {
-            Debug.Log($"[LobbyManagerOnline] Spawning LobbyPlayer for local player {player}");
+            Debug.Log($"[LobbyManagerOnline] Spawning lobby player prefab for local player {player}");
             runner.Spawn(playerPrefab, Vector3.zero, Quaternion.identity, player);
         }
     }
-
-    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
-    {
-        Debug.Log($"[LobbyManagerOnline] Player {player} left.");
-    }
-
 
     public void RegisterReady(LobbyPlayerControllerOnline player, int selectedCharacter)
     {
         if (!characterLocks.ContainsKey(selectedCharacter))
         {
             characterLocks[selectedCharacter] = player;
+            Debug.Log($"[LobbyManagerOnline] Player {player.PlayerName} locked character {selectedCharacter}");
         }
-
         CheckIfAllReady();
     }
 
     public void UnregisterReady(LobbyPlayerControllerOnline player, int selectedCharacter)
     {
-        if (characterLocks.ContainsKey(selectedCharacter) && characterLocks[selectedCharacter] == player)
+        if (characterLocks.TryGetValue(selectedCharacter, out var existing) && existing == player)
         {
             characterLocks.Remove(selectedCharacter);
+            Debug.Log($"[LobbyManagerOnline] Player {player.PlayerName} unlocked character {selectedCharacter}");
+            CheckIfAllReady();
         }
-
-        CheckIfAllReady();
     }
+
     private void CheckIfAllReady()
     {
-        if (characterLocks.Count == 2) // Exactly 2 players
-        {
-            if (runner.IsSharedModeMasterClient)
-            {
-                startGameButton.SetActive(true);
-            }
-            Debug.Log("[LobbyManagerOnline] Both players ready! Start button enabled.");
-        }
-        else
-        {
-            startGameButton.SetActive(false);
-            Debug.Log("[LobbyManagerOnline] Not all players ready. Start button hidden.");
-        }
+        bool allReady = characterLocks.Count == 2;
+        startGameButton.SetActive(allReady && NetworkManagerOnline.Instance.Runner.IsSharedModeMasterClient);
+
+        Debug.Log(allReady
+            ? "[LobbyManagerOnline] Both players ready, start button active"
+            : "[LobbyManagerOnline] Not all players ready, start button hidden");
     }
 
     public void StartGame()
     {
-        if (!runner.IsSharedModeMasterClient)
-            return; // Only Host can start the game
-
-        Debug.Log("[LobbyManagerOnline] Starting online game!");
-
-        LobbyData.players.Clear();
-        LobbyData.isOnlineGame = true; // <<< Online now!
-
-        foreach (var entry in characterLocks)
+        if (!NetworkManagerOnline.Instance.Runner.IsSharedModeMasterClient)
         {
-            PlayerSelection p = new PlayerSelection
-            {
-                selectedCharacter = entry.Key,
-                playerName = entry.Value.PlayerName
-            };
-            LobbyData.players.Add(p);
+            Debug.LogWarning("[LobbyManagerOnline] Only the host can start the game.");
+            return;
         }
 
-        DontDestroyOnLoad(runner.gameObject); // Keep the runner alive across scenes
-        SceneManager.LoadScene("Gameplay"); // <<< This instead
+        Debug.Log("[LobbyManagerOnline] Starting the online game!");
+
+        LobbyData.players.Clear();
+        LobbyData.isOnlineGame = true;
+
+        foreach (var kvp in characterLocks)
+        {
+            LobbyData.players.Add(new PlayerSelection
+            {
+                selectedCharacter = kvp.Key,
+                playerName = kvp.Value.PlayerName
+            });
+        }
+
+        // Destroy this lobby manager when leaving the lobby
+        Destroy(gameObject);
+
+        SceneManager.LoadScene("Gameplay", LoadSceneMode.Single);
     }
-
-
-    // Empty callbacks
-    public void OnInput(NetworkRunner runner, NetworkInput input) { }
-    public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
-    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
-    public void OnConnectedToServer(NetworkRunner runner) { }
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
-    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
-    public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
-    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
-    public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
-    public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
-    public void OnSceneLoadDone(NetworkRunner runner) { }
-    public void OnSceneLoadStart(NetworkRunner runner) { }
-    public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
-    public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
-    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, System.ArraySegment<byte> data) { }
-    public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
 }
