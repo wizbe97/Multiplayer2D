@@ -81,7 +81,21 @@ public class LobbyPlayerControllerOnline : NetworkBehaviour
         Debug.Log($"[LobbyPlayerController] RPC_UpdateReadyUI called with ready={ready}");
         IsReady = ready;
         UpdateUI();
+
+        // Only the host should register ready state
+        if (Runner.IsSharedModeMasterClient)
+        {
+            if (IsReady)
+            {
+                lobbyManager.RegisterReady(this, SelectedCharacter);
+            }
+            else
+            {
+                lobbyManager.UnregisterReady(this, SelectedCharacter);
+            }
+        }
     }
+
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
     private void RPC_SetCharacter(int character)

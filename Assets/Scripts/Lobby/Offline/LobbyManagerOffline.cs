@@ -103,27 +103,24 @@ public class LobbyManagerOffline : MonoBehaviour
         }
     }
 
-    // public void StartGame()
-    // {
-    //     Debug.Log("[LobbyManagerOffline] Starting game!");
+    public void StartGame()
+    {
+        Debug.Log("[LobbyManagerOffline] Starting game!");
 
-    //     LobbyData.players.Clear();
-    //     LobbyData.isOnlineGame = false; // <<< Offline!
+        LobbyData.players.Clear();
+        LobbyData.isOnlineGame = false; // <<< Offline!
 
-    //     foreach (var entry in characterLocks)
-    //     {
-    //         PlayerSelection p = new PlayerSelection
-    //         {
-    //             selectedCharacter = entry.Key,
-    //             playerName = entry.Value.playerNameText.text
-    //         };
-    //         LobbyData.players.Add(p);
-    //     }
+        foreach (var entry in characterLocks)
+        {
+            PlayerSelection p = new PlayerSelection
+            {
+                selectedCharacter = entry.Key,
+                playerName = entry.Value.playerNameText.text
+            };
+            LobbyData.players.Add(p);
+        }
 
-    //     SceneManager.LoadScene("Gameplay"); // Only one Gameplay scene now
-    // }
-
-
-
+        SceneManager.LoadScene("Gameplay"); 
+    }
 
 }

@@ -718,8 +718,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: LobbyOfflineManager, Assembly-CSharp
+      - m_Target: {fileID: 4761568276957057328}
+        m_TargetAssemblyTypeName: LobbyManagerOnline, Assembly-CSharp
         m_MethodName: StartGame
         m_Mode: 1
         m_Arguments:
@@ -1030,6 +1030,7 @@ MonoBehaviour:
   playerPrefab: {fileID: 1939968412243113851, guid: ab34e8d1eaee1d642885f55229371b4e, type: 3}
   leftCharacterPanel: {fileID: 1218555581}
   rightCharacterPanel: {fileID: 822754121}
+  startGameButton: {fileID: 1328758143}
 --- !u!1 &8469250971918224486
 GameObject:
   m_ObjectHideFlags: 0

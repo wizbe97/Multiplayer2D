@@ -2,6 +2,7 @@ using UnityEngine;
 using Fusion;
 using Fusion.Sockets;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class LobbyManagerOnline : NetworkBehaviour, INetworkRunnerCallbacks
 {
@@ -9,6 +10,10 @@ public class LobbyManagerOnline : NetworkBehaviour, INetworkRunnerCallbacks
 
     public Transform leftCharacterPanel;
     public Transform rightCharacterPanel;
+    public GameObject startGameButton;
+
+    private Dictionary<int, LobbyPlayerControllerOnline> characterLocks = new Dictionary<int, LobbyPlayerControllerOnline>();
+
 
     private NetworkRunner runner;
 
@@ -18,7 +23,10 @@ public class LobbyManagerOnline : NetworkBehaviour, INetworkRunnerCallbacks
         runner.ProvideInput = true;
         runner.AddCallbacks(this);
 
+        DontDestroyOnLoad(runner.gameObject); // <<< ADD THIS LINE!
+
         runner.transform.SetParent(transform); // Keep hierarchy clean
+
 
         var result = await runner.StartGame(new StartGameArgs
         {
@@ -49,6 +57,68 @@ public class LobbyManagerOnline : NetworkBehaviour, INetworkRunnerCallbacks
     {
         Debug.Log($"[LobbyManagerOnline] Player {player} left.");
     }
+
+
+    public void RegisterReady(LobbyPlayerControllerOnline player, int selectedCharacter)
+    {
+        if (!characterLocks.ContainsKey(selectedCharacter))
+        {
+            characterLocks[selectedCharacter] = player;
+        }
+
+        CheckIfAllReady();
+    }
+
+    public void UnregisterReady(LobbyPlayerControllerOnline player, int selectedCharacter)
+    {
+        if (characterLocks.ContainsKey(selectedCharacter) && characterLocks[selectedCharacter] == player)
+        {
+            characterLocks.Remove(selectedCharacter);
+        }
+
+        CheckIfAllReady();
+    }
+    private void CheckIfAllReady()
+    {
+        if (characterLocks.Count == 2) // Exactly 2 players
+        {
+            if (runner.IsSharedModeMasterClient)
+            {
+                startGameButton.SetActive(true);
+            }
+            Debug.Log("[LobbyManagerOnline] Both players ready! Start button enabled.");
+        }
+        else
+        {
+            startGameButton.SetActive(false);
+            Debug.Log("[LobbyManagerOnline] Not all players ready. Start button hidden.");
+        }
+    }
+
+    public void StartGame()
+    {
+        if (!runner.IsSharedModeMasterClient)
+            return; // Only Host can start the game
+
+        Debug.Log("[LobbyManagerOnline] Starting online game!");
+
+        LobbyData.players.Clear();
+        LobbyData.isOnlineGame = true; // <<< Online now!
+
+        foreach (var entry in characterLocks)
+        {
+            PlayerSelection p = new PlayerSelection
+            {
+                selectedCharacter = entry.Key,
+                playerName = entry.Value.PlayerName
+            };
+            LobbyData.players.Add(p);
+        }
+
+        DontDestroyOnLoad(runner.gameObject); // Keep the runner alive across scenes
+        SceneManager.LoadScene("Gameplay"); // <<< This instead
+    }
+
 
     // Empty callbacks
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
