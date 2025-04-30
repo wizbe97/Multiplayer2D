@@ -182,12 +182,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 101014add7c484e4da21a61e6a76c105, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  characterAOfflinePrefab: {fileID: 4829841387210029252, guid: 63f57da1cd0f10b40a8442ca92118a63, type: 3}
-  characterBOfflinePrefab: {fileID: 1402430462602591307, guid: f092c495aea990f47a8f15c5eaaeeabf, type: 3}
+  selectionData: {fileID: 11400000, guid: 00550aadf81b543499d2b6ed56daf858, type: 2}
   characterAOnlinePrefab: {fileID: 4829841387210029252, guid: ae40c1d9a081b874c95d8b013c91ea41, type: 3}
   characterBOnlinePrefab: {fileID: 1402430462602591307, guid: 04ec9425bcd47884db59f3ee0deb32e2, type: 3}
-  spawnPointA: {fileID: 186629700}
-  spawnPointB: {fileID: 1330346657}
+  spawnPoint: {fileID: 186629700}
 --- !u!4 &374243816
 Transform:
   m_ObjectHideFlags: 0

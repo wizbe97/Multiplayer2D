@@ -1,106 +1,34 @@
 using UnityEngine;
-using TMPro;
+using System.Threading.Tasks;
+
 using Fusion;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("Offline Prefabs")]
-    public GameObject characterAOfflinePrefab;
-    public GameObject characterBOfflinePrefab;
+    public PlayerSelectionCharacter selectionData;
 
-    [Header("Online Prefabs")]
     public GameObject characterAOnlinePrefab;
     public GameObject characterBOnlinePrefab;
 
-    public Transform spawnPointA;
-    public Transform spawnPointB;
+    public Transform spawnPoint;
 
-    private bool isOnlineGame;
-    private NetworkRunner runner;
-
-    private GameObject prefabA;
-    private GameObject prefabB;
-
-    private bool hasSpawned = false; // Add a flag to prevent double spawning
-
-    private void Start()
+    private async void Start()
     {
-        runner = FindObjectOfType<NetworkRunner>();
-        isOnlineGame = LobbyData.isOnlineGame;
+        await Task.Delay(100); // wait for a short time after scene load
 
-        Debug.Log($"[GameManager] Starting Game. Online: {isOnlineGame}");
+        var runner = FindObjectOfType<NetworkRunner>();
+        int charId = selectionData.selectedCharacter;
 
-        SetupPrefabs();
+        if (charId == -1)
+        {
+            Debug.LogError("[GameManager] No character selected!");
+            return;
+        }
+
+        var prefab = (charId == 1) ? characterAOnlinePrefab : characterBOnlinePrefab;
+        runner.Spawn(prefab, spawnPoint.position, Quaternion.identity, runner.LocalPlayer);
+
+        Debug.Log($"[GameManager] Spawned local character {charId} for player {runner.LocalPlayer.PlayerId}");
     }
 
-    private void Update()
-    {
-        if (isOnlineGame && !hasSpawned)
-        {
-            if (runner != null && runner.IsRunning && LobbyData.players.Count > 0)
-            {
-                Debug.Log("[GameManager] Runner ready and LobbyData has players. Spawning...");
-                SpawnPlayers();
-                hasSpawned = true;
-            }
-        }
-        else if (!isOnlineGame && !hasSpawned)
-        {
-            SpawnPlayers();
-            hasSpawned = true;
-        }
-    }
-
-    private void SetupPrefabs()
-    {
-        if (isOnlineGame)
-        {
-            prefabA = characterAOnlinePrefab;
-            prefabB = characterBOnlinePrefab;
-        }
-        else
-        {
-            prefabA = characterAOfflinePrefab;
-            prefabB = characterBOfflinePrefab;
-        }
-    }
-
-    private void SpawnPlayers()
-    {
-        foreach (var player in LobbyData.players)
-        {
-            GameObject prefabToSpawn = (player.selectedCharacter == 1) ? prefabA : prefabB;
-            Transform spawnPoint = (player.selectedCharacter == 1) ? spawnPointA : spawnPointB;
-
-            if (prefabToSpawn != null && spawnPoint != null)
-            {
-                if (isOnlineGame)
-                {
-                    if (runner.IsServer)
-                    {
-                        var networkObj = runner.Spawn(prefabToSpawn, spawnPoint.position, Quaternion.identity);
-                        AttachName(networkObj.gameObject, player.playerName.ToString());
-                    }
-                }
-                else
-                {
-                    var character = Instantiate(prefabToSpawn, spawnPoint.position, Quaternion.identity);
-                    AttachName(character, player.playerName.ToString());
-                }
-            }
-        }
-    }
-
-    private void AttachName(GameObject character, string playerName)
-    {
-        GameObject nameTextObj = new GameObject("PlayerName");
-        nameTextObj.transform.SetParent(character.transform);
-        nameTextObj.transform.localPosition = new Vector3(0, 1f, 0);
-
-        TextMeshPro text = nameTextObj.AddComponent<TextMeshPro>();
-        text.text = playerName;
-        text.alignment = TextAlignmentOptions.Center;
-        text.fontSize = 5;
-        text.color = Color.white;
-    }
 }

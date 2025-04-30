@@ -52,6 +52,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerNameText: {fileID: 3128172306672146472}
+  lobbyManager: {fileID: 0}
+  leftCharacterPanel: {fileID: 0}
+  rightCharacterPanel: {fileID: 0}
+  selectionData: {fileID: 11400000, guid: 00550aadf81b543499d2b6ed56daf858, type: 2}
+  _PlayerName: 
+  _SelectedCharacter: 1
+  _IsReady: 0
 --- !u!222 &6309220981456427917
 CanvasRenderer:
   m_ObjectHideFlags: 0

@@ -1,7 +1,8 @@
 using UnityEngine;
 using Fusion;
-using UnityEngine.SceneManagement;
+using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class LobbyManagerOnline : MonoBehaviour
 {
@@ -43,6 +44,7 @@ public class LobbyManagerOnline : MonoBehaviour
             characterLocks[selectedCharacter] = player;
             Debug.Log($"[LobbyManagerOnline] Player {player.PlayerName} locked character {selectedCharacter}");
         }
+
         CheckIfAllReady();
     }
 
@@ -68,29 +70,31 @@ public class LobbyManagerOnline : MonoBehaviour
 
     public void StartGame()
     {
-        if (!NetworkManagerOnline.Instance.Runner.IsSharedModeMasterClient)
+        var runner = NetworkManagerOnline.Instance.Runner;
+
+        if (!runner.IsSceneAuthority)
         {
-            Debug.LogWarning("[LobbyManagerOnline] Only the host can start the game.");
+            Debug.LogWarning("Not the scene authority, can't load scene.");
             return;
         }
 
-        Debug.Log("[LobbyManagerOnline] Starting the online game!");
-
-        LobbyData.players.Clear();
-        LobbyData.isOnlineGame = true;
-
-        foreach (var kvp in characterLocks)
+        foreach (var lobbyPlayer in FindObjectsOfType<LobbyPlayerControllerOnline>())
         {
-            LobbyData.players.Add(new PlayerSelection
-            {
-                selectedCharacter = kvp.Key,
-                playerName = kvp.Value.PlayerName
-            });
+            Debug.Log($"[LobbyManagerOnline] Despawning lobby player {lobbyPlayer.PlayerName}");
+            runner.Despawn(lobbyPlayer.GetComponent<NetworkObject>());
         }
 
-        // Destroy this lobby manager when leaving the lobby
-        Destroy(gameObject);
-
-        SceneManager.LoadScene("Gameplay", LoadSceneMode.Single);
+        // Delay longer to give time for despawn sync
+        StartCoroutine(LoadSceneAfterDelay(runner, 0.5f));
     }
+
+    private IEnumerator LoadSceneAfterDelay(NetworkRunner runner, float delaySeconds)
+    {
+        yield return new WaitForSeconds(delaySeconds); // Allow time for despawns to propagate
+
+        var sceneIndex = SceneUtility.GetBuildIndexByScenePath("Assets/Scenes/Gameplay.unity");
+        runner.LoadScene(SceneRef.FromIndex(sceneIndex), LoadSceneMode.Single);
+    }
+
+
 }
